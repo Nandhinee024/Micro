@@ -9,8 +9,8 @@ import com.socialmedia.likeservice.exception.ResourceNotFoundException;
 import com.socialmedia.likeservice.feign.NotificationClient;
 import com.socialmedia.likeservice.feign.PostClient;
 import com.socialmedia.likeservice.repository.LikeRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,13 +18,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class LikeService {
+
+    private static final Logger log = LoggerFactory.getLogger(LikeService.class);
 
     private final LikeRepository likeRepository;
     private final PostClient postClient;
     private final NotificationClient notificationClient;
+
+    public LikeService(LikeRepository likeRepository, PostClient postClient, NotificationClient notificationClient) {
+        this.likeRepository = likeRepository;
+        this.postClient = postClient;
+        this.notificationClient = notificationClient;
+    }
 
     @Transactional
     public LikeResponse likePost(LikeRequest request) {

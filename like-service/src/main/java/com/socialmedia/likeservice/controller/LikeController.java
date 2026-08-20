@@ -5,7 +5,6 @@ import com.socialmedia.likeservice.dto.LikeResponse;
 import com.socialmedia.likeservice.dto.LikeStatusResponse;
 import com.socialmedia.likeservice.service.LikeService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,10 +14,13 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/likes")
-@RequiredArgsConstructor
 public class LikeController {
 
     private final LikeService likeService;
+
+    public LikeController(LikeService likeService) {
+        this.likeService = likeService;
+    }
 
     @PostMapping
     public ResponseEntity<LikeResponse> likePost(

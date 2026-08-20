@@ -7,8 +7,8 @@ import com.socialmedia.commentservice.exception.ResourceNotFoundException;
 import com.socialmedia.commentservice.feign.NotificationClient;
 import com.socialmedia.commentservice.feign.PostClient;
 import com.socialmedia.commentservice.repository.CommentRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,13 +16,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class CommentService {
+
+    private static final Logger log = LoggerFactory.getLogger(CommentService.class);
 
     private final CommentRepository commentRepository;
     private final PostClient postClient;
     private final NotificationClient notificationClient;
+
+    public CommentService(CommentRepository commentRepository, PostClient postClient, NotificationClient notificationClient) {
+        this.commentRepository = commentRepository;
+        this.postClient = postClient;
+        this.notificationClient = notificationClient;
+    }
 
     @Transactional
     public CommentResponse addComment(CreateCommentRequest request) {

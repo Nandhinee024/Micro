@@ -5,7 +5,6 @@ import com.socialmedia.notificationservice.dto.NotificationResponse;
 import com.socialmedia.notificationservice.entity.Notification;
 import com.socialmedia.notificationservice.service.NotificationService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,10 +14,13 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/notifications")
-@RequiredArgsConstructor
 public class NotificationController {
 
     private final NotificationService notificationService;
+
+    public NotificationController(NotificationService notificationService) {
+        this.notificationService = notificationService;
+    }
 
     @PostMapping
     public ResponseEntity<NotificationResponse> createNotification(

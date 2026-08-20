@@ -6,8 +6,8 @@ import com.socialmedia.postservice.dto.UpdatePostRequest;
 import com.socialmedia.postservice.entity.Post;
 import com.socialmedia.postservice.exception.ResourceNotFoundException;
 import com.socialmedia.postservice.repository.PostRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,11 +15,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class PostService {
 
+    private static final Logger log = LoggerFactory.getLogger(PostService.class);
+
     private final PostRepository postRepository;
+
+    public PostService(PostRepository postRepository) {
+        this.postRepository = postRepository;
+    }
 
     @Transactional
     public PostResponse createPost(CreatePostRequest request) {
