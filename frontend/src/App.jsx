@@ -1,44 +1,159 @@
 import React, { useState, useEffect } from 'react';
 import { userApi, postApi, likeApi, commentApi, notificationApi } from './services/api';
 
-const DEFAULT_USERS = [
-  { id: 1, username: 'alex', firstName: 'Alex', lastName: 'Rivers' },
-  { id: 2, username: 'sarah', firstName: 'Sarah', lastName: 'Chen' },
-  { id: 3, username: 'marcus', firstName: 'Marcus', lastName: 'Vance' }
+const DEMO_USERS = [
+  { id: 1, username: 'alex', firstName: 'Alex', lastName: 'Rivers', email: 'alex@example.com' },
+  { id: 2, username: 'sarah', firstName: 'Sarah', lastName: 'Chen', email: 'sarah@example.com' },
+  { id: 3, username: 'marcus', firstName: 'Marcus', lastName: 'Vance', email: 'marcus@example.com' }
 ];
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState(DEFAULT_USERS[0]);
-  const [activeTab, setActiveTab] = useState('feed'); // 'feed', 'users', 'notifications'
+  // If null, show Login/Register Front Page
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('sphere_current_user');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return null; // Start on Login/Register page by default
+  });
 
-  // Data states
+  // Auth Page States
+  const [authMode, setAuthMode] = useState('login'); // 'login', 'register', 'demo'
+  const [authForm, setAuthForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: ''
+  });
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // App Dashboard States
+  const [activeTab, setActiveTab] = useState('feed'); // 'feed', 'users', 'notifications'
   const [posts, setPosts] = useState([]);
-  const [users, setUsers] = useState(DEFAULT_USERS);
+  const [users, setUsers] = useState(DEMO_USERS);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Form states
   const [newPostContent, setNewPostContent] = useState('');
   const [newPostImage, setNewPostImage] = useState('');
-  const [newUsername, setNewUsername] = useState('');
-  const [newFullName, setNewFullName] = useState('');
-  const [showNewUserForm, setShowNewUserForm] = useState(false);
 
-  // Comment states per post: { [postId]: { list: [], open: false, text: '' } }
+  // Comment & Like & Follow states
   const [commentsState, setCommentsState] = useState({});
-  // Like states per post: { [postId]: { count: 0, liked: false } }
   const [likesState, setLikesState] = useState({});
-  // Follow states per user: { [userId]: boolean }
   const [followState, setFollowState] = useState({});
 
+  // Sync current user with localStorage
   useEffect(() => {
-    loadAllData();
-  }, [currentUser.id]);
+    if (currentUser) {
+      localStorage.setItem('sphere_current_user', JSON.stringify(currentUser));
+      loadAllData();
+    } else {
+      localStorage.removeItem('sphere_current_user');
+    }
+  }, [currentUser]);
 
   const loadAllData = async () => {
     loadPosts();
     loadUsers();
     loadNotifications();
+  };
+
+  // --- AUTHENTICATION HANDLERS ---
+  const handleAuthChange = (e) => {
+    setAuthForm({ ...authForm, [e.target.name]: e.target.value });
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    if (!authForm.username || !authForm.password) {
+      setAuthError('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setAuthLoading(true);
+      setAuthError('');
+      const res = await userApi.login({
+        usernameOrEmail: authForm.username.trim(),
+        password: authForm.password
+      });
+
+      if (res && res.id) {
+        setCurrentUser(res);
+      } else {
+        // Fallback for offline demo
+        const found = users.find(u => u.username === authForm.username.trim()) || {
+          id: Date.now(),
+          username: authForm.username.trim(),
+          firstName: authForm.username.trim(),
+          email: `${authForm.username.trim()}@example.com`
+        };
+        setCurrentUser(found);
+      }
+    } catch (err) {
+      setAuthError(err.message || 'Invalid credentials');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (!authForm.username || !authForm.email || !authForm.password || !authForm.firstName) {
+      setAuthError('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setAuthLoading(true);
+      setAuthError('');
+      const res = await userApi.register({
+        username: authForm.username.trim(),
+        email: authForm.email.trim(),
+        password: authForm.password,
+        firstName: authForm.firstName.trim(),
+        lastName: authForm.lastName.trim() || ''
+      });
+
+      if (res && res.id) {
+        const newUser = {
+          id: res.id,
+          username: res.username,
+          firstName: res.firstName,
+          lastName: res.lastName,
+          email: res.email
+        };
+        setUsers(prev => [...prev, newUser]);
+        setCurrentUser(newUser);
+      } else {
+        const newUser = {
+          id: Date.now(),
+          username: authForm.username.trim(),
+          firstName: authForm.firstName.trim(),
+          lastName: authForm.lastName.trim() || '',
+          email: authForm.email.trim()
+        };
+        setUsers(prev => [...prev, newUser]);
+        setCurrentUser(newUser);
+      }
+    } catch (err) {
+      setAuthError(err.message || 'Registration failed');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleDemoLogin = (user) => {
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setAuthMode('login');
+    setAuthError('');
   };
 
   // --- POSTS & LIKES & COMMENTS ---
@@ -62,7 +177,7 @@ export default function App() {
         setPosts(sample);
       }
     } catch (e) {
-      console.warn('Could not load posts from API Gateway:', e.message);
+      console.warn('Could not load posts:', e.message);
     }
   };
 
@@ -103,6 +218,7 @@ export default function App() {
   };
 
   const loadPostLikes = async (postId) => {
+    if (!currentUser) return;
     try {
       const status = await likeApi.getLikeStatus(postId, currentUser.id);
       if (status) {
@@ -221,7 +337,7 @@ export default function App() {
   };
 
   const checkFollow = async (userId) => {
-    if (userId === currentUser.id) return;
+    if (!currentUser || userId === currentUser.id) return;
     try {
       const res = await userApi.isFollowing(userId, currentUser.id);
       if (res) {
@@ -245,35 +361,9 @@ export default function App() {
     }
   };
 
-  const handleRegisterUser = async (e) => {
-    e.preventDefault();
-    if (!newUsername.trim()) return;
-
-    try {
-      const res = await userApi.register({
-        username: newUsername.trim(),
-        email: `${newUsername.trim()}@example.com`,
-        password: 'password123',
-        firstName: newFullName.trim() || newUsername.trim(),
-        lastName: 'User'
-      });
-      if (res) {
-        const newUser = { id: res.id, username: res.username, firstName: res.firstName, lastName: res.lastName };
-        setUsers([...users, newUser]);
-        setCurrentUser(newUser);
-      }
-    } catch (e) {
-      const newUser = { id: Date.now(), username: newUsername.trim(), firstName: newFullName.trim() || newUsername.trim() };
-      setUsers([...users, newUser]);
-      setCurrentUser(newUser);
-    }
-    setNewUsername('');
-    setNewFullName('');
-    setShowNewUserForm(false);
-  };
-
   // --- NOTIFICATIONS ---
   const loadNotifications = async () => {
+    if (!currentUser) return;
     try {
       const data = await notificationApi.getNotifications(currentUser.id);
       if (Array.isArray(data)) {
@@ -291,61 +381,209 @@ export default function App() {
     setUnreadCount(0);
   };
 
+  // ==========================================
+  // VIEW 1: LOGIN & REGISTER FRONT PAGE
+  // ==========================================
+  if (!currentUser) {
+    return (
+      <div className="auth-wrapper">
+        <div className="auth-card">
+          <div className="auth-header">
+            <h1 className="auth-title">Sphere Social</h1>
+            <p className="auth-subtitle">Microservices-Powered Social Platform</p>
+          </div>
+
+          {/* Auth Mode Tabs */}
+          <div className="auth-tabs">
+            <button
+              type="button"
+              className={`auth-tab-btn ${authMode === 'login' ? 'active' : ''}`}
+              onClick={() => { setAuthMode('login'); setAuthError(''); }}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              className={`auth-tab-btn ${authMode === 'register' ? 'active' : ''}`}
+              onClick={() => { setAuthMode('register'); setAuthError(''); }}
+            >
+              Register
+            </button>
+            <button
+              type="button"
+              className={`auth-tab-btn ${authMode === 'demo' ? 'active' : ''}`}
+              onClick={() => { setAuthMode('demo'); setAuthError(''); }}
+            >
+              Demo Accounts
+            </button>
+          </div>
+
+          {authError && <div className="alert-error">{authError}</div>}
+
+          {/* SIGN IN FORM */}
+          {authMode === 'login' && (
+            <form onSubmit={handleLogin}>
+              <div className="form-group">
+                <label className="form-label">Username or Email</label>
+                <input
+                  type="text"
+                  name="username"
+                  className="form-input"
+                  placeholder="e.g. alex"
+                  value={authForm.username}
+                  onChange={handleAuthChange}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={authForm.password}
+                  onChange={handleAuthChange}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: '100%', marginTop: '10px' }}
+                disabled={authLoading}
+              >
+                {authLoading ? 'Signing in...' : 'Sign In'}
+              </button>
+            </form>
+          )}
+
+          {/* REGISTER FORM */}
+          {authMode === 'register' && (
+            <form onSubmit={handleRegister}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div className="form-group">
+                  <label className="form-label">First Name</label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    className="form-input"
+                    placeholder="John"
+                    value={authForm.firstName}
+                    onChange={handleAuthChange}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Last Name</label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    className="form-input"
+                    placeholder="Doe"
+                    value={authForm.lastName}
+                    onChange={handleAuthChange}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Username</label>
+                <input
+                  type="text"
+                  name="username"
+                  className="form-input"
+                  placeholder="johndoe"
+                  value={authForm.username}
+                  onChange={handleAuthChange}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  className="form-input"
+                  placeholder="john@example.com"
+                  value={authForm.email}
+                  onChange={handleAuthChange}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={authForm.password}
+                  onChange={handleAuthChange}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: '100%', marginTop: '10px' }}
+                disabled={authLoading}
+              >
+                {authLoading ? 'Creating account...' : 'Create Account'}
+              </button>
+            </form>
+          )}
+
+          {/* QUICK DEMO USERS */}
+          {authMode === 'demo' && (
+            <div>
+              <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '14px' }}>
+                Click any profile to instantly sign in and test the platform:
+              </p>
+              {DEMO_USERS.map((user) => (
+                <div
+                  key={user.id}
+                  className="demo-user-card"
+                  onClick={() => handleDemoLogin(user)}
+                >
+                  <div>
+                    <div style={{ fontWeight: '700' }}>{user.firstName} {user.lastName}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>@{user.username}</div>
+                  </div>
+                  <button className="btn btn-primary btn-sm">Enter →</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // VIEW 2: AUTHENTICATED SOCIAL DASHBOARD
+  // ==========================================
   return (
     <div className="container">
       {/* Top Header */}
       <div className="header">
         <div className="logo">Sphere Social</div>
 
-        <div className="user-selector">
-          <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Active User:</span>
-          <select
-            className="form-input"
-            style={{ width: 'auto', marginBottom: 0, padding: '4px 8px' }}
-            value={currentUser.id}
-            onChange={(e) => {
-              const selected = users.find(u => u.id === Number(e.target.value)) || currentUser;
-              setCurrentUser(selected);
-            }}
-          >
-            {users.map(u => (
-              <option key={u.id} value={u.id}>@{u.username}</option>
-            ))}
-          </select>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => setShowNewUserForm(!showNewUserForm)}
-          >
-            + New
+        <div className="user-profile-badge">
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{currentUser.firstName} {currentUser.lastName || ''}</div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>@{currentUser.username}</div>
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={handleLogout}>
+            Logout
           </button>
         </div>
       </div>
-
-      {/* New User Register Form */}
-      {showNewUserForm && (
-        <form onSubmit={handleRegisterUser} className="card" style={{ marginBottom: '16px' }}>
-          <h4 style={{ marginBottom: '10px' }}>Add / Register New User</h4>
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Username (e.g. john)"
-            value={newUsername}
-            onChange={(e) => setNewUsername(e.target.value)}
-            required
-          />
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Full Name (e.g. John Doe)"
-            value={newFullName}
-            onChange={(e) => setNewFullName(e.target.value)}
-          />
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button type="submit" className="btn btn-primary btn-sm">Create User</button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowNewUserForm(false)}>Cancel</button>
-          </div>
-        </form>
-      )}
 
       {/* Tabs */}
       <div className="tabs">
