@@ -49,7 +49,6 @@ export default function App() {
         setPosts(data);
         data.forEach(p => loadPostLikes(p.id));
       } else {
-        // Sample starter post if DB is empty
         const sample = [
           {
             id: 1,
@@ -82,7 +81,6 @@ export default function App() {
         setPosts([newPost, ...posts]);
       }
     } catch (e) {
-      // Local fallback
       const localPost = {
         id: Date.now(),
         userId: currentUser.id,
@@ -121,7 +119,6 @@ export default function App() {
     const newLiked = !current.liked;
     const newCount = newLiked ? current.count + 1 : Math.max(0, current.count - 1);
 
-    // Optimistic UI update
     setLikesState(prev => ({
       ...prev,
       [postId]: { count: newCount, liked: newLiked }
@@ -185,7 +182,6 @@ export default function App() {
         }));
       }
     } catch (e) {
-      // Local fallback
       const localComment = {
         id: Date.now(),
         postId,
