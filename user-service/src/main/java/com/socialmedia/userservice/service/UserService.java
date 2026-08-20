@@ -8,8 +8,8 @@ import com.socialmedia.userservice.exception.DuplicateResourceException;
 import com.socialmedia.userservice.exception.ResourceNotFoundException;
 import com.socialmedia.userservice.feign.NotificationClient;
 import com.socialmedia.userservice.repository.*;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,9 +17,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
@@ -27,6 +27,15 @@ public class UserService {
     private final FollowRepository followRepository;
     private final UserReportRepository userReportRepository;
     private final NotificationClient notificationClient;
+
+    public UserService(UserRepository userRepository, UserProfileRepository userProfileRepository, BlockedUserRepository blockedUserRepository, FollowRepository followRepository, UserReportRepository userReportRepository, NotificationClient notificationClient) {
+        this.userRepository = userRepository;
+        this.userProfileRepository = userProfileRepository;
+        this.blockedUserRepository = blockedUserRepository;
+        this.followRepository = followRepository;
+        this.userReportRepository = userReportRepository;
+        this.notificationClient = notificationClient;
+    }
 
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll().stream()
@@ -97,7 +106,6 @@ public class UserService {
         Follow follow = Follow.builder().follower(follower).following(following).build();
         followRepository.save(follow);
 
-        // Update counts
         if (following.getProfile() == null) {
             following.setProfile(UserProfile.builder().user(following).build());
         }
@@ -109,7 +117,6 @@ public class UserService {
         userRepository.save(following);
         userRepository.save(follower);
 
-        // Send notification via Feign
         try {
             notificationClient.sendFollowNotification(followingId, followerId, follower.getUsername());
         } catch (Exception e) {

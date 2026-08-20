@@ -10,15 +10,17 @@ import com.socialmedia.userservice.exception.BadRequestException;
 import com.socialmedia.userservice.exception.DuplicateResourceException;
 import com.socialmedia.userservice.exception.ResourceNotFoundException;
 import com.socialmedia.userservice.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
+
+    public AuthService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {

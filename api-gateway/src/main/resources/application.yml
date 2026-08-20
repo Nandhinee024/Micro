@@ -26,11 +26,21 @@ spring:
             allowedHeaders: "*"
             allowCredentials: false
       routes:
-        # User Service
-        - id: user-service
+        # User Service & Auth
+        - id: user-service-users
           uri: lb://user-service
           predicates:
-            - Path=/api/users/**,/api/auth/**
+            - Path=/api/users/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: user-service-cb
+                fallbackUri: forward:/fallback/user-service
+
+        - id: user-service-auth
+          uri: lb://user-service
+          predicates:
+            - Path=/api/auth/**
           filters:
             - name: CircuitBreaker
               args:
